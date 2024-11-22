@@ -3,16 +3,13 @@ import Grid from '@mui/material/Grid2'
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import { CONFIG } from './utils/config';
 import './App.css'
 import VmSim from './components/VmSim';
 
-const CONFIG = Object.freeze({
-	MAX: 64
-})
-
 function App() {
 	const [virtualAddress, setVirtualAddress] = useState<number | ''>('')
-	const [addrSubmit, setAddrSubmit] = useState<number>(0)
+	const [addrSubmit, setAddrSubmit] = useState<number | null>(null)
 
 	const get_rand = () => {
 		setVirtualAddress(Math.floor(Math.random() * CONFIG.MAX))
@@ -28,7 +25,7 @@ function App() {
 	}
 
 	const submit_address = () => {
-		if (virtualAddress == '') {
+		if (virtualAddress === '') {
 			alert('Please enter a virtual address')
 		}
 		else if (virtualAddress < 0 || virtualAddress > CONFIG.MAX - 1) {
@@ -76,7 +73,7 @@ function App() {
 				</Stack>
 			</Grid>
 			<Grid size={9}>
-				<VmSim virtualAddress={addrSubmit}/>
+				<VmSim virtualAddress={addrSubmit === null ? -1 : addrSubmit}/>
 			</Grid>
 		</Grid>
 	)
