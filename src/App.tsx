@@ -10,6 +10,7 @@ import VmSim from './components/VmSim';
 function App() {
 	const [virtualAddress, setVirtualAddress] = useState<number | ''>('')
 	const [addrSubmit, setAddrSubmit] = useState<number | null>(null)
+	const [toggleNext, setToggleNext] = useState<boolean>(false)
 
 	const get_rand = () => {
 		setVirtualAddress(Math.floor(Math.random() * CONFIG.MAX))
@@ -33,13 +34,19 @@ function App() {
 		}
 		else {
 			setAddrSubmit(virtualAddress)
+			setToggleNext(true)
 		}
+	}
+
+	const handle_next = () => {
+		const event = new CustomEvent('next.event')
+		document.dispatchEvent(event)
 	}
 
 	return (
 		<Grid container spacing={10}>
 			<Grid size={3} sx={{ marginTop: '100px' }}>
-				<Stack>
+				<Stack spacing={1}>
 					<TextField
 						label="Virtual Address"
 						type="number"
@@ -52,7 +59,7 @@ function App() {
 							},
 						}}
 					/>
-					<Stack direction="row" >
+					<Stack direction="row" spacing={1} >
 						<Button
 							variant="outlined"
 							sx={{ width: '100%' }}
@@ -70,10 +77,17 @@ function App() {
 							Ok
 						</Button>
 					</Stack>
+					<Button
+						variant='outlined'
+						disabled={!toggleNext}
+						onClick={handle_next}
+					>
+						Next
+					</Button>
 				</Stack>
 			</Grid>
 			<Grid size={9}>
-				<VmSim virtualAddress={addrSubmit === null ? -1 : addrSubmit}/>
+				<VmSim virtualAddress={addrSubmit === null ? -1 : addrSubmit} />
 			</Grid>
 		</Grid>
 	)
