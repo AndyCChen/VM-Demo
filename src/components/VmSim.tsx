@@ -30,12 +30,11 @@ enum VmState {
    PAGE_TABLE_ENTRY_PRESENT,
    PAGE_TABLE_SWAP,
    PAGE_EVICT,
-   TLB_END,
-   PAGE_TABLE_END,
+   END,
 }
 
 type VmSimProps = {
-   virtualAddress: number, 
+   virtualAddress: number,
    endCallback: () => void,
    msgCallback: (msg: string) => void,
 }
@@ -59,7 +58,7 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
 
    const [pageTable, setPageTable] = useState<PTB[]>(() => {
       const entries: PTB[] = []
-      for (let i = 0; i < CONFIG.PAGE_TBL_SIZE(); ++i) {
+      for (let i = 0; i < CONFIG.PAGE_TABLE_SIZE(); ++i) {
          entries.push({
             PPN: null,
             presentBit: false
@@ -79,6 +78,9 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
       return entries
    })
 
+   const [physicalPageNum, setPhysicalPageNum] = useState<string | null>(null)
+   const [pageOffset, setPageOffset] = useState<string | null>(null)
+
    const currentState = useRef<VmState>(VmState.TLB_SEARCH)
    const freePage = useRef<number>(-1) // index of a free physical page
    const freeTlbEntry = useRef<number>(-1) // index of a free tlb entry
@@ -87,7 +89,9 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
       switch (currentState.current) {
          // begin
          case VmState.TLB_SEARCH:
-            console.log('tlb search')
+            msgCallback('tlb search')
+            setPhysicalPageNum(null)
+            setPageOffset(null)
             if (tlb.find((entry) => entry.VPN === vpn) != undefined)
                currentState.current = VmState.TLB_HIT
             else
@@ -97,17 +101,17 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
 
          // tlb hit
          case VmState.TLB_HIT:
-            console.log('tlb hit')
-            currentState.current = VmState.TLB_END
+            msgCallback('tlb hit')
+            currentState.current = VmState.END
             break
 
          // tlb miss must reference page table
          case VmState.TLB_MISS:
-            console.log('tlb miss')
+            msgCallback('tlb miss')
             currentState.current = VmState.PAGE_TABLE_LOOKUP
             break
          case VmState.PAGE_TABLE_LOOKUP:
-            console.log('page table lookup', vpn)
+            msgCallback(`Lookup page table at index ${vpn}`)
             if (pageTable[vpn].presentBit)
                currentState.current = VmState.PAGE_TABLE_ENTRY_PRESENT
             else
@@ -118,23 +122,23 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
          case VmState.PAGE_TABLE_ENTRY_PRESENT:
             freeTlbEntry.current = tlb.findIndex((entry) => entry.VPN === null && entry.PPN === null)
             if (freeTlbEntry.current != -1) {
-               console.log('page table present, update tlb')
+               msgCallback('page table present, update tlb')
                setTlb(tlb.map((entry, index) => {
                   if (index === freeTlbEntry.current)
                      return { VPN: vpn, PPN: freePage.current }
                   else
                      return entry
                }))
-               currentState.current = VmState.PAGE_TABLE_END
+               currentState.current = VmState.END
             }
             else {
-               console.log('page table present, select tlb entry to evict')
+               msgCallback('page table present, select tlb entry to evict')
                currentState.current = VmState.TLB_EVICT
             }
             break
 
          case VmState.PAGE_TABLE_FAULT:
-            console.log('page fault')
+            msgCallback('Page fault')
             freePage.current = physicalMemory.findIndex((entry) => entry.PAGE_TABLE_IDX === null)
             if (freePage.current != -1) {
                currentState.current = VmState.PAGE_TABLE_SWAP
@@ -159,7 +163,7 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
 
             freeTlbEntry.current = tlb.findIndex((entry) => entry.VPN === null && entry.PPN === null)
             if (freeTlbEntry.current != -1) {
-               console.log('page swap', freePage.current)
+               msgCallback(`Page swap ${freePage.current}`)
 
                setTlb(tlb.map((entry, index) => {
                   if (index === freeTlbEntry.current)
@@ -167,10 +171,10 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
                   else
                      return entry
                }))
-               currentState.current = VmState.PAGE_TABLE_END
+               currentState.current = VmState.END
             }
             else {
-               console.log('select tlb entry to evict')
+               msgCallback('select tlb entry to evict')
                currentState.current = VmState.TLB_EVICT
             }
             break
@@ -184,18 +188,18 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
                   else
                      return entry
                }))
-               console.log('select tlb entry ', evit_index, ' to evict')
-               currentState.current = VmState.PAGE_TABLE_END
+               msgCallback(`select tlb entry ${evit_index} to evict`)
+               currentState.current = VmState.END
                break
             }
          case VmState.PAGE_EVICT:
             {
-               let evit_index = Math.floor(Math.random() * CONFIG.PHYSICAL_PAGES)
+               let evict_index = Math.floor(Math.random() * CONFIG.PHYSICAL_PAGES)
                let evicted_page: number
-               freePage.current = evit_index
+               freePage.current = evict_index
 
                setPhysicalMemory(physicalMemory.map((entry, index) => {
-                  if (index === evit_index) {
+                  if (index === evict_index) {
                      evicted_page = entry.PAGE_TABLE_IDX as number
                      return { PPN: entry.PPN, PAGE_TABLE_IDX: vpn }
                   }
@@ -205,38 +209,36 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
 
                setPageTable(pageTable.map((entry, index) => {
                   if (index === evicted_page)
-                     return {...entry, presentBit: false}
+                     return { ...entry, presentBit: false }
                   else
                      return entry
                }))
 
-               setTlb(tlb.map((entry, index) => {
+               setTlb(tlb.map((entry) => {
                   if (entry.VPN === evicted_page)
-                     return {VPN: null, PPN: null}
+                     return { VPN: null, PPN: null }
                   else
                      return entry
                }))
 
-               console.log('select page in physical page ', evit_index, ' to evict')
+               msgCallback(`select page in physical page ${evict_index} to evict`)
                currentState.current = VmState.PAGE_TABLE_SWAP
                break
             }
 
-         case VmState.TLB_END:
-            console.log('page in tlb end')
-            currentState.current = VmState.TLB_SEARCH
-            endCallback()
-            break
-         case VmState.PAGE_TABLE_END:
-            console.log('end')
-            currentState.current = VmState.TLB_SEARCH
-            endCallback()
-            break
+         case VmState.END:
+            {
+               setPageOffset(virtualPageOffset)
+               setPhysicalPageNum( pageTable[vpn].PPN?.toString(2).padStart(2, '0')! )
+               msgCallback('')
+               endCallback()
+               currentState.current = VmState.TLB_SEARCH
+               break
+            }
 
          default:
             alert('Invalid state!')
       }
-
    }
 
    useEffect(() => {
@@ -248,7 +250,7 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
 
    return (
       <>
-         <h2>Virtual Memory</h2>
+         <h4>Virtual Address</h4>
          <Grid id='Virtual-Address-bits' container spacing={0}>
             <Grid size={4} sx={{ border: '1px solid grey' }}>
                Page Number
@@ -322,7 +324,22 @@ export default function VmSim({ virtualAddress, endCallback, msgCallback }: VmSi
             </Grid>
          </Grid>
 
+         <h4>Physical Address</h4>
+         <Grid container id='physical-address'>
+            <Grid size={4} sx={{ border: '1px solid grey' }}>
+               Page Number
+            </Grid>
+            <Grid size={8} sx={{ border: '1px solid grey' }}>
+               Page Offset
+            </Grid>
 
+            <Grid size={4} sx={{ border: '1px solid grey' }}>
+               {physicalPageNum === null ? '-' : physicalPageNum}
+            </Grid>
+            <Grid size={8} sx={{ border: '1px solid grey' }}>
+               {pageOffset === null ? '-' : pageOffset}
+            </Grid>
+         </Grid>
 
 
       </>

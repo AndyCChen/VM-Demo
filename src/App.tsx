@@ -1,4 +1,5 @@
 import { ChangeEvent, useReducer, useState } from 'react'
+import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid2'
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -77,8 +78,10 @@ function App() {
 		document.dispatchEvent(event)
 	}
 
+	const [message, setMessage] = useState<string>('')
 	const messasgeCallback = (msg: string) => {
 		console.log(msg)
+		setMessage(msg)
 	}
 
 	return (
@@ -115,6 +118,9 @@ function App() {
 							Ok
 						</Button>
 					</Stack>
+					<Box sx={{ height: '150px' }}>
+						{message}
+					</Box>
 					<Button
 						variant='outlined'
 						disabled={!state.nextToggle}
