@@ -1,4 +1,4 @@
-import { ChangeEvent, useState } from 'react'
+import { ChangeEvent, useReducer, useState } from 'react'
 import Grid from '@mui/material/Grid2'
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -7,10 +7,42 @@ import { CONFIG } from './utils/config';
 import './App.css'
 import VmSim from './components/VmSim';
 
+type InputState = {
+	submittedAddress: number | null,
+	nextToggle: boolean
+}
+
+type reducerAction = {
+	type: 'submit' | 'end',
+	address: number | null,
+}
+
 function App() {
 	const [virtualAddress, setVirtualAddress] = useState<number | ''>('')
-	const [addrSubmit, setAddrSubmit] = useState<number | null>(null)
-	const [toggleNext, setToggleNext] = useState<boolean>(false)
+
+	const reducer = (state: InputState, action: reducerAction): InputState => {
+		switch (action.type) {
+			case 'submit':
+				return {
+					submittedAddress: action.address,
+					nextToggle: true,
+				}
+			case 'end':
+				return {
+					...state,
+					nextToggle: false,
+				}
+			default:
+				return {
+					...state
+				}
+		}
+	}
+
+	const [state, dispatchState] = useReducer(reducer, {
+		submittedAddress: null,
+		nextToggle: false
+	})
 
 	const get_rand = () => {
 		setVirtualAddress(Math.floor(Math.random() * CONFIG.MAX))
@@ -33,14 +65,20 @@ function App() {
 			alert('Enter a address between 0-63')
 		}
 		else {
-			setAddrSubmit(virtualAddress)
-			setToggleNext(true)
+			dispatchState({
+				type: 'submit',
+				address: virtualAddress,
+			})
 		}
 	}
 
 	const handle_next = () => {
 		const event = new CustomEvent('next.event')
 		document.dispatchEvent(event)
+	}
+
+	const messasgeCallback = (msg: string) => {
+		console.log(msg)
 	}
 
 	return (
@@ -71,7 +109,7 @@ function App() {
 						<Button
 							variant="outlined"
 							sx={{ width: '100%' }}
-							disabled={false}
+							disabled={state.nextToggle}
 							onClick={submit_address}
 						>
 							Ok
@@ -79,7 +117,7 @@ function App() {
 					</Stack>
 					<Button
 						variant='outlined'
-						disabled={!toggleNext}
+						disabled={!state.nextToggle}
 						onClick={handle_next}
 					>
 						Next
@@ -87,7 +125,14 @@ function App() {
 				</Stack>
 			</Grid>
 			<Grid size={9}>
-				<VmSim virtualAddress={addrSubmit === null ? -1 : addrSubmit} />
+				<VmSim
+					virtualAddress={state.submittedAddress === null ? -1 : state.submittedAddress}
+					endCallback={() => dispatchState({
+						type: 'end',
+						address: state.submittedAddress,
+					})}
+					msgCallback={messasgeCallback}
+				/>
 			</Grid>
 		</Grid>
 	)
