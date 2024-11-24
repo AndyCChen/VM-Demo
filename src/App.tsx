@@ -80,7 +80,6 @@ function App() {
 
 	const [message, setMessage] = useState<string>('')
 	const messasgeCallback = (msg: string) => {
-		console.log(msg)
 		setMessage(msg)
 	}
 

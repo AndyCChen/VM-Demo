@@ -9,3 +9,8 @@ export const CONFIG = Object.freeze({
 		return ((this.MAX - 1)& 0xF) + 1
 	}
 })
+
+export const ItemStyle = Object.freeze({
+	FOCUSED: '1px solid red',
+	UNFOCUSED: '1px solid grey'
+})
